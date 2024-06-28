@@ -1,0 +1,189 @@
+Task: Creat an application, host it in AWS EKS in such a way that you can update the application using blue-green deployment.
+
+1) Launch your AWS EKS cluster. (Do this early enough because the cluster takes almost 15minutes to get created)
+   expose the kubeconfig file (aws eks update-kubeconfig --region us-west-2 --name myapp-eks-cluster)
+
+2) Create an ec2 to use as a working environment
+   i) Update the ec2 instance (sudo apt update)
+  ii) Install docker in the ec2 instance (sudo apt install docker.io -y)
+  iii) Create a directory named PROJECT and cd into the directory (mkdir PROJECT)
+  iv) Create a file named blue.html and copy the blue clode into it (vi blue.html) in the blue directory
+  v) Create a dockerfile and copy the code into it (vi Dockerfile)
+
+# Use official Tomcat image as the base image
+FROM tomcat:latest
+
+# Copy the HTML file to the webapps directory of Tomcat
+COPY blue.html /usr/local/tomcat/webapps/ROOT/index.html
+
+# Expose port 8080 to the outside world
+EXPOSE 8080
+
+  vi) Transform your html code into a docker image (docker build -t display:Blue_v1.0 . )
+
+3) Create a repository in Dockerhub named kube-project where you will push your images and keep.
+
+4) login into your docker account from the command line (docker login -u <username> -p <passwrod> )
+
+5) Tag your docker image with the name of the docker repository you created (docker image tag display:Blue_v1.0 clemenrance/kube-project:Blue_v1.0 )
+
+    NB (Tagging an image is tricky. You first give the image name eg "display" then you give the tag version eg "Blue_v1.0" such that the image becomes display:Blue_v1.0. Inorder to push the image to your repository, the command is (docker image tag <your image name and its tag> <your repository:your image tag>) eg docker image tag display:Blue_v1.0 clemenrance/kube-project:Blue_v1.0 
+ 
+
+6) Push your docker image to your docker repository ( docker push clemenrance/kube-project:Blue_v1.0 )
+
+7) Creat a namespace in EKS called blue-green-deployment (kubectl create namespace blue-green-deployment)
+
+8) Create a deployment yml called: blue-deployment.yaml  (vim blue-deployment.yaml)
+
+9) copy the below configuration of the deployment.
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demoapp-blue
+  labels:
+    app: demoapp
+    env: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demoapp
+      env: blue
+  template:
+    metadata:
+      labels:
+        app: demoapp
+        env: blue
+    spec:
+      containers:
+      - name: demo
+        image: clemenrance/kube-project:display-v1.o
+        ports:
+        - containerPort: 8080
+
+and create the deployment in the blue environment using the below command:
+
+kubectl apply -f blue-deployment.yaml -n blue-green-deployment
+
+Similarly, create another deployment for the green environment by changing the name and label in the manifest file, and save it as green-deployment.yaml. Then, deploy it in the green environment using the the command.
+
+vim green-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demoapp-green
+  labels:
+    app: demoapp
+    env: green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demoapp
+      env: green
+  template:
+    metadata:
+      labels:
+        app: demoapp
+        env: green
+    spec:
+      containers:
+      - name: demo
+        image: clemenrance/kube-project:display-v1.o
+        ports:
+        - containerPort: 8080
+
+kubectl apply -f green-deployment.yaml -n blue-green-deployment
+
+
+
+10) Now, we need to create a service that will expose our application to the outside world. The service should use the label selector to route traffic to either the blue or green deployment. Create a manifest file and add the below code to it.
+
+vim service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: demoapp-service
+spec:
+  selector:
+    app: demoapp
+    env: blue
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    nodePort: 30000
+  type: LoadBalancer
+
+Save this manifest as service.yaml, and create the service using the below command:
+
+kubectl apply -f service.yaml -n blue-green-deployment
+
+Now, let’s verify that the deployments and service are working correctly. To do this, we need to get the external IP address of the service:
+
+kubectl get service -n blue-green-deployment
+
+This command will output the external IP address of the service. Use this IP address to access the application in a web browser. You should see the application running in the blue environment.
+
+11) Now we are tired of the blue application and we want to update it to Green application
+    i) Create the file green.html, copy the code and pase on it then save. (vi green.html)
+    ii) Dockerise the app green.html by runnung (docker build -t display:Green_v2)
+    iii) Tag the app with the name of the docker repository (docker image tag display:Green_v2 clemenrance/kube-project:Green_v2 )
+    iv) Push the image to your docker hub repo (Docker push clemenrance/kube-project:Green_v2)
+
+12) Now change the image directory in the green deployment
+
+vim green-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demoapp-green
+  labels:
+    app: demoapp
+    env: green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demoapp
+      env: green
+  template:
+    metadata:
+      labels:
+        app: demoapp
+        env: green
+    spec:
+      containers:
+      - name: demo
+        image: clemenrance/kube-project:Green_v2
+        ports:
+        - containerPort: 8080
+
+kubectl apply -f green-deployment.yaml -n blue-green-deployment
+
+Now change the environment in the ingress config to Green
+
+vim service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: demoapp-service
+spec:
+  selector:
+    app: demoapp
+    env: green
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    nodePort: 30000
+  type: LoadBalancer
+
+Refresh your browser.

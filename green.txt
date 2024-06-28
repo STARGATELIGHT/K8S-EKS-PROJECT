@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blue Green Deployment</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  .header {
+    background-color: #007bff;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+  }
+
+  .green-square {
+    width: 50px;
+    height: 50px;
+    background-color: green;
+    margin: 5px;
+    float: left;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  Blue Green Deployment
+</div>
+
+<div id="background">
+  <!-- This JavaScript code will generate 200 green squares -->
+  <script>
+    // Get the background element
+    var background = document.getElementById('background');
+
+    // Function to toggle visibility of green squares
+    function toggleVisibility() {
+      var squares = document.querySelectorAll('.green-square');
+      squares.forEach(function(square) {
+        if (square.style.display === 'none') {
+          square.style.display = 'block';
+        } else {
+          square.style.display = 'none';
+        }
+      });
+    }
+
+    // Call the toggleVisibility function every half second
+    setInterval(toggleVisibility, 500);
+
+    // Create 200 green squares and append them to the background
+    for (var i = 0; i < 200; i++) {
+      var square = document.createElement('div');
+      square.className = 'green-square';
+      background.appendChild(square);
+    }
+  </script>
+</div>
+
+</body>
+</html>
